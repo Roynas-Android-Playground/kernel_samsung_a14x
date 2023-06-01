@@ -28,6 +28,10 @@
 #include <linux/rcupdate.h>
 #include <linux/audit.h>
 #include <linux/falloc.h>
+#ifdef CONFIG_KSU
+#include <ksu_hook.h>
+#endif
+
 #include <linux/fs_struct.h>
 #include <linux/ima.h>
 #include <linux/dnotify.h>
@@ -413,6 +417,9 @@ long do_faccessat(int dfd, const char __user *filename, int mode, int flags)
 	if (flags & ~(AT_EACCESS | AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH))
 		return -EINVAL;
 
+#ifdef CONFIG_KSU
+        ksu_handle_faccessat(&dfd, &filename, &mode, &flags);
+#endif
 	if (flags & AT_SYMLINK_NOFOLLOW)
 		lookup_flags &= ~LOOKUP_FOLLOW;
 	if (flags & AT_EMPTY_PATH)

@@ -24,6 +24,10 @@
 #include "internal.h"
 #include "mount.h"
 
+#ifdef CONFIG_KSU
+#include <ksu_hook.h>
+#endif
+
 /**
  * generic_fillattr - Fill in the basic attributes from the inode struct
  * @inode: Inode to use as the source
@@ -182,6 +186,9 @@ static int vfs_statx(int dfd, const char __user *filename, int flags,
 		      AT_STATX_SYNC_TYPE))
 		return -EINVAL;
 
+#ifdef CONFIG_KSU
+        ksu_handle_stat(&dfd, &filename, &flags);
+#endif
 	if (!(flags & AT_SYMLINK_NOFOLLOW))
 		lookup_flags |= LOOKUP_FOLLOW;
 	if (!(flags & AT_NO_AUTOMOUNT))
