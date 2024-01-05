@@ -1044,7 +1044,7 @@ static void pablo_mem_sync(struct is_priv_buf *pbuf, off_t offset, size_t size,
 					i, actual_offset, actual_size);
 
 			if (secure){
-				dma_sync_single_for_cpu(&dummy_dev, paddr + actual_offset, actual_size, dir);
+				dma_sync_single_for_cpu(&dummy_dev, *(paddr + actual_offset), actual_size, dir);
 			}
 			else {
 				if (target == SYNC_FOR_DEVICE)
