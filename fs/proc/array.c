@@ -669,7 +669,28 @@ int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 	}
 	return 0;
 }
+int proc_pid_statlmkd(struct seq_file *m, struct pid_namespace *ns,
+			struct pid *pid, struct task_struct *task)
+{
+	struct mm_struct *mm = get_task_mm(task);
 
+	if (mm) {
+		unsigned long size;
+		unsigned long resident = 0;
+		unsigned long swapresident = 0;
+
+		size = task_statlmkd(mm, &resident, &swapresident);
+		mmput(mm);
+
+		seq_put_decimal_ull(m, "", size);
+		seq_put_decimal_ull(m, " ", resident);
+		seq_put_decimal_ull(m, " ", swapresident);
+		seq_putc(m, '\n');
+	} else {
+		seq_write(m, "0 0 0\n", 6);
+	}
+	return 0;
+}
 #ifdef CONFIG_PROC_CHILDREN
 static struct pid *
 get_children_pid(struct inode *inode, struct pid *pid_prev, loff_t pos)

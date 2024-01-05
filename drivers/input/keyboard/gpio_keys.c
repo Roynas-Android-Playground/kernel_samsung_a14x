@@ -766,7 +766,6 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	struct gpio_keys_drvdata *ddata;
 	struct input_dev *input;
 	int i, error;
-	int wakeup = 0;
 
 	if (!pdata) {
 		pdata = gpio_keys_get_devtree_pdata(dev);
@@ -833,14 +832,11 @@ static int gpio_keys_probe(struct platform_device *pdev)
 		}
 
 		error = gpio_keys_setup_key(pdev, input, ddata,
-					    button, i, child);
+						button, i, child);
 		if (error) {
 			fwnode_handle_put(child);
 			return error;
 		}
-
-		if (button->wakeup)
-			wakeup = 1;
 	}
 
 	fwnode_handle_put(child);
@@ -852,7 +848,7 @@ static int gpio_keys_probe(struct platform_device *pdev)
 		return error;
 	}
 
-	device_init_wakeup(dev, wakeup);
+	device_init_wakeup(dev, 1);
 
 	return 0;
 }

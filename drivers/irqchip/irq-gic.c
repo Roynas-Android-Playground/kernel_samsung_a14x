@@ -121,7 +121,7 @@ static DEFINE_STATIC_KEY_TRUE(supports_deactivate_key);
 
 static struct gic_chip_data gic_data[CONFIG_ARM_GIC_MAX_NR] __read_mostly;
 
-static struct gic_kvm_info gic_v2_kvm_info;
+static struct gic_kvm_info gic_v2_kvm_info __initdata;
 
 static DEFINE_PER_CPU(u32, sgi_intid);
 
@@ -803,7 +803,21 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 {
 	void __iomem *reg = gic_dist_base(d) + GIC_DIST_TARGET + gic_irq(d);
 	unsigned int cpu;
+	struct cpumask mask;
+	u8 cpumap = 0;
 
+	if (unlikely(d->common->state_use_accessors & IRQD_GIC_MULTI_TARGET)) {
+		if (!cpumask_and(&mask, mask_val, cpu_online_mask) ||
+		    !cpumask_and(&mask, &mask, cpu_coregroup_mask(0)))
+			return -EINVAL;
+
+		for_each_cpu(cpu, &mask) {
+			if (cpu >= min_t(int, NR_GIC_CPU_IF, nr_cpu_ids))
+				return -EINVAL;
+
+			cpumap |= gic_cpu_map[cpu];
+		}
+	} else {
 	if (!force)
 		cpu = cpumask_any_and(mask_val, cpu_online_mask);
 	else
@@ -811,11 +825,15 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 
 	if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
 		return -EINVAL;
+		
+		cpumap = gic_cpu_map[cpu];
+		cpumask_copy(&mask, cpumask_of(cpu));
+	}
 
 	if (static_branch_unlikely(&needs_rmw_access))
-		rmw_writeb(gic_cpu_map[cpu], reg);
+		rmw_writeb(cpumap, reg);
 	else
-		writeb_relaxed(gic_cpu_map[cpu], reg);
+		writeb_relaxed(cpumap, reg);
 	irq_data_update_effective_affinity(d, cpumask_of(cpu));
 
 	return IRQ_SET_MASK_OK_DONE;
@@ -1513,7 +1531,7 @@ static void __init gic_of_setup_kvm_info(struct device_node *node)
 		return;
 
 	if (static_branch_likely(&supports_deactivate_key))
-		gic_set_kvm_info(&gic_v2_kvm_info);
+		vgic_set_kvm_info(&gic_v2_kvm_info);
 }
 
 int __init
@@ -1680,7 +1698,7 @@ static void __init gic_acpi_setup_kvm_info(void)
 
 	gic_v2_kvm_info.maint_irq = irq;
 
-	gic_set_kvm_info(&gic_v2_kvm_info);
+	vgic_set_kvm_info(&gic_v2_kvm_info);
 }
 
 static int __init gic_v2_acpi_init(union acpi_subtable_headers *header,

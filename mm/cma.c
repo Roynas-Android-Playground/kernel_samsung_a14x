@@ -42,9 +42,6 @@
 
 #include "cma.h"
 
-extern void lru_cache_disable(void);
-extern void lru_cache_enable(void);
-
 struct cma cma_areas[MAX_CMA_AREAS];
 unsigned cma_area_count;
 static DEFINE_MUTEX(cma_mutex);
@@ -58,6 +55,7 @@ unsigned long cma_get_size(const struct cma *cma)
 {
 	return cma->count << PAGE_SHIFT;
 }
+EXPORT_SYMBOL_GPL(cma_get_size);
 
 const char *cma_get_name(const struct cma *cma)
 {
@@ -395,7 +393,6 @@ err:
 	return ret;
 }
 
-#ifdef CONFIG_CMA_DEBUG
 static void cma_debug_show_areas(struct cma *cma)
 {
 	unsigned long next_zero_bit, next_set_bit, nr_zero;
@@ -420,9 +417,6 @@ static void cma_debug_show_areas(struct cma *cma)
 	pr_cont("=> %lu free of %lu total pages\n", nr_total, cma->count);
 	mutex_unlock(&cma->lock);
 }
-#else
-static inline void cma_debug_show_areas(struct cma *cma) { }
-#endif
 
 /**
  * cma_alloc() - allocate pages from contiguous area
@@ -470,7 +464,6 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
 	if (bitmap_count > bitmap_maxno)
 		goto out;
 
-	lru_cache_disable();
 	for (;;) {
 		struct acr_info info = {0};
 
@@ -538,6 +531,7 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
 		pr_debug("%s(): memory range at %p is busy, retrying\n",
 			 __func__, pfn_to_page(pfn));
 
+		trace_android_vh_cma_alloc_busy_info(&info);
 		trace_cma_alloc_busy_retry(cma->name, pfn, pfn_to_page(pfn),
 					   count, align);
 
@@ -552,7 +546,6 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
 		}
 	}
 
-	lru_cache_enable();
 	trace_cma_alloc_finish(cma->name, pfn, page, count, align);
 	trace_cma_alloc_info(cma->name, page, count, align, &cma_info);
 
@@ -578,7 +571,7 @@ out:
 	if (page) {
 		count_vm_event(CMA_ALLOC_SUCCESS);
 		cma_sysfs_account_success_pages(cma, count);
-	} else {
+	} else if (!(gfp_mask & __GFP_NORETRY)) {
 		count_vm_event(CMA_ALLOC_FAIL);
 		if (cma)
 			cma_sysfs_account_fail_pages(cma, count);

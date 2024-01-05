@@ -684,11 +684,11 @@ config AB8500_BM
 
 config BATTERY_GOLDFISH
 	tristate "Goldfish battery driver"
-	depends on GOLDFISH || COMPILE_TEST
 	depends on HAS_IOMEM
 	help
-	  Say Y to enable support for the battery and AC power in the
-	  Goldfish emulator.
+	  Say Y to enable support for the Goldfish battery and AC power
+	  driver. Originated in the Android Studio Emulator (goldfish) it is
+	  going to be used in other emulators.
 
 config BATTERY_RT5033
 	tristate "RT5033 fuel gauge support"
@@ -775,5 +775,28 @@ config RN5T618_POWER
 	  Say Y here to have support for RN5T618 PMIC family fuel gauge and charger.
 	  This driver can also be built as a module. If so, the module will be
 	  called rn5t618_power.
+
+config FAKE_BATT
+	tristate "SMDK board only support"
+	help
+	  Say Y here to enable support for S2MXXXX charging manager driver on SMDK board.
+
+config MANAGER_S2M_CHARGER
+	tristate "S2M_CHG_MANAGER battery driver"
+	help
+	  Say Y here to enable support for S2MXXXX charging manager driver.
+	  This charging manager driver supports only the basic functions.
+
+config BLOCK_CHG_SMDK_S2MU106
+	tristate "S2ASL01 SWITCHING IC support"
+	depends on I2C
+	help
+	 Say Y here to block charging mode for S2MU106 charger.
+
+config S2M_THERMAL
+	tristate "PMIC Thermal Function"
+	depends on MANAGER_S2M_CHARGER
+	help
+	  Say Y here to enable PMIC thermal function.
 
 endif # POWER_SUPPLY

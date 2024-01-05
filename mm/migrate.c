@@ -54,9 +54,6 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/migrate.h>
-#undef CREATE_TRACE_POINTS
-#include <trace/hooks/mm.h>
-#include <trace/hooks/vmscan.h>
 
 #include "internal.h"
 
@@ -314,7 +311,6 @@ void __migration_entry_wait(struct mm_struct *mm, pte_t *ptep,
 	if (!get_page_unless_zero(page))
 		goto out;
 	pte_unmap_unlock(ptep, ptl);
-	trace_android_vh_waiting_for_page_migration(page);
 	put_and_wait_on_page_locked(page);
 	return;
 out:
@@ -588,8 +584,6 @@ void migrate_page_states(struct page *newpage, struct page *page)
 {
 	int cpupid;
 
-	trace_android_vh_migrate_page_states(page, newpage);
-
 	if (PageError(page))
 		SetPageError(newpage);
 	if (PageReferenced(page))
@@ -607,7 +601,6 @@ void migrate_page_states(struct page *newpage, struct page *page)
 		SetPageChecked(newpage);
 	if (PageMappedToDisk(page))
 		SetPageMappedToDisk(newpage);
-	trace_android_vh_look_around_migrate_page(page, newpage);
 
 	/* Move dirty on pages not done by migrate_page_move_mapping() */
 	if (PageDirty(page))
@@ -1666,7 +1659,7 @@ out_putpage:
 	 * isolate_lru_page() or drop the page ref if it was
 	 * not isolated.
 	 */
-	put_user_page(page);
+	put_page(page);
 out:
 	mmap_read_unlock(mm);
 	return err;

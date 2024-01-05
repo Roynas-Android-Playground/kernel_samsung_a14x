@@ -20,6 +20,11 @@
 
 #define FSCRYPT_FILE_NONCE_SIZE	16
 
+/*
+ * Minimum size of an fscrypt master key.  Note: a longer key will be required
+ * if ciphers with a 256-bit security strength are used.  This is just the
+ * absolute minimum, which applies when only 128-bit encryption is used.
+ */
 #define FSCRYPT_MIN_KEY_SIZE	16
 
 #define FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE	128
@@ -222,16 +227,7 @@ struct fscrypt_info {
 	 * will be NULL if the master key was found in a process-subscribed
 	 * keyring rather than in the filesystem-level keyring.
 	 */
-#ifdef __GENKSYMS__
-	/*
-	 * Android ABI CRC preservation due to commit 391cceee6d43 ("fscrypt:
-	 * stop using keyrings subsystem for fscrypt_master_key") changing this
-	 * type.  Size is the same, this is a private field.
-	 */
-	struct key *ci_master_key;
-#else
 	struct fscrypt_master_key *ci_master_key;
-#endif
 
 	/*
 	 * Link in list of inodes that were unlocked with the master key.
@@ -446,7 +442,11 @@ struct fscrypt_master_key_secret {
 	 */
 	struct fscrypt_hkdf	hkdf;
 
-	/* Size of the raw key in bytes.  Set even if ->raw isn't set. */
+	/*
+	 * Size of the raw key in bytes.  This remains set even if ->raw was
+	 * zeroized due to no longer being needed.  I.e. we still remember the
+	 * size of the key even if we don't need to remember the key itself.
+	 */
 	u32			size;
 
 	/* True if the key in ->raw is a hardware-wrapped key. */

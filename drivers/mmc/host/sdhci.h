@@ -339,7 +339,8 @@ struct sdhci_adma2_64_desc {
 
 /*
  * Maximum segments assuming a 512KiB maximum requisition size and a minimum
- * 4KiB page size.
+ * 4KiB page size. Note this also allows enough for multiple descriptors in
+ * case of PAGE_SIZE >= 64KiB.
  */
 #define SDHCI_MAX_SEGS		128
 
@@ -541,6 +542,7 @@ struct sdhci_host {
 	unsigned int blocks;	/* remaining PIO blocks */
 
 	int sg_count;		/* Mapped sg entries */
+	int max_adma;		/* Max. length in ADMA descriptor */
 
 	void *adma_table;	/* ADMA descriptor table */
 	void *align_buffer;	/* Bounce buffer */
@@ -607,7 +609,9 @@ struct sdhci_host {
 
 	u64			data_timeout;
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE2(1,
+			  u8 drv_type,		/* Current UHS-I driver type */
+			  bool reinit_uhs);	/* Force UHS-related re-initialization */
 
 	unsigned long private[] ____cacheline_aligned;
 };

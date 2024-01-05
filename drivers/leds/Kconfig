@@ -18,7 +18,7 @@ config LEDS_CLASS
 	tristate "LED Class Support"
 	help
 	  This option enables the LED sysfs class in /sys/class/leds.  You'll
-	  need this to do anything useful with LEDs.  If unsure, say N.
+	  need this to do anything useful with LEDs.  If unsure, say Y.
 
 config LEDS_CLASS_FLASH
 	tristate "LED Flash Class Support"
@@ -928,6 +928,20 @@ config LEDS_ACER_A500
 	help
 	  This option enables support for the Power Button LED of
 	  Acer Iconia Tab A500.
+
+config ERD_LEDS_S2MU106_FLASH
+	tristate "FLASH LED support for the S2MU106"
+	depends on (ERD_MFD_S2MU106) && I2C
+	help
+	  If you say yes here you will get support for
+	  for the ERD_LEDS_S2MU106_FLASH led chip.
+
+config LEDS_S2MU106_FLASH
+	tristate "FLASH LED support for the S2MU106"
+    depends on (MFD_S2MU106) && I2C
+	help
+	  If you say yes here you will get support for
+	  for the LEDS_S2MU106_FLASH led chip.
 
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"

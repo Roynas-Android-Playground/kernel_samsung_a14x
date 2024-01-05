@@ -917,7 +917,6 @@ void mmc_set_clock(struct mmc_host *host, unsigned int hz)
 	host->ios.clock = hz;
 	mmc_set_ios(host);
 }
-EXPORT_SYMBOL_GPL(mmc_set_clock);
 
 int mmc_execute_tuning(struct mmc_card *card)
 {
@@ -1000,7 +999,6 @@ void mmc_set_initial_state(struct mmc_host *host)
 
 	mmc_crypto_set_initial_state(host);
 }
-EXPORT_SYMBOL_GPL(mmc_set_initial_state);
 
 /**
  * mmc_vdd_to_ocrbitnum - Convert a voltage to the OCR bit number
@@ -1217,8 +1215,10 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 	cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 
 	err = mmc_wait_for_cmd(host, &cmd, 0);
-	if (err)
+	if (err) {
+		pr_err("%s: volt switch cmd failed : %d\n", __func__, err);
 		goto power_cycle;
+	}
 
 	if (!mmc_host_is_spi(host) && (cmd.resp[0] & R1_ERROR))
 		return -EIO;
@@ -1230,6 +1230,7 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 	mmc_delay(1);
 	if (host->ops->card_busy && !host->ops->card_busy(host)) {
 		err = -EAGAIN;
+		pr_err("%s: check 1st busy failed : %d\n", __func__, err);
 		goto power_cycle;
 	}
 
@@ -1239,6 +1240,7 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 		 * sent CMD11, so a power cycle is required anyway
 		 */
 		err = -EAGAIN;
+		pr_err("%s: volt switch on host side failed : %d\n", __func__, err);
 		goto power_cycle;
 	}
 
@@ -1249,12 +1251,14 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 	 * Failure to switch is indicated by the card holding
 	 * dat[0:3] low
 	 */
-	if (host->ops->card_busy && host->ops->card_busy(host))
+	if (host->ops->card_busy && host->ops->card_busy(host)) {
 		err = -EAGAIN;
+		pr_err("%s: check 2nd busy failed : %d\n", __func__, err);
+	}
 
 power_cycle:
 	if (err) {
-		pr_debug("%s: Signal voltage switch failed, "
+		pr_err("%s: Signal voltage switch failed, "
 			"power cycling card\n", mmc_hostname(host));
 		mmc_power_cycle(host, ocr);
 	}
@@ -1270,7 +1274,6 @@ void mmc_set_timing(struct mmc_host *host, unsigned int timing)
 	host->ios.timing = timing;
 	mmc_set_ios(host);
 }
-EXPORT_SYMBOL_GPL(mmc_set_timing);
 
 /*
  * Select appropriate driver type for host.
@@ -1920,11 +1923,15 @@ EXPORT_SYMBOL(mmc_can_discard);
 
 int mmc_can_sanitize(struct mmc_card *card)
 {
+#ifdef CONFIG_MMC_SANITIZE
 	if (!mmc_can_trim(card) && !mmc_can_erase(card))
 		return 0;
 	if (card->ext_csd.sec_feature_support & EXT_CSD_SEC_SANITIZE)
 		return 1;
-	return 0;
+#else
+		/* Do Not use Sanitize */
+		return 0;
+#endif /* CONFIG_MMC_SANITIZE */
 }
 
 int mmc_can_secure_erase_trim(struct mmc_card *card)
@@ -2029,6 +2036,9 @@ unsigned int mmc_calc_max_discard(struct mmc_card *card)
 {
 	struct mmc_host *host = card->host;
 	unsigned int max_discard, max_trim;
+
+	if (!host->max_busy_timeout)
+		return UINT_MAX;
 
 	/*
 	 * Without erase_group_def set, MMC erase timeout depends on clock
@@ -2211,6 +2221,7 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 	if (ret) {
 		mmc_card_set_removed(host->card);
 		pr_debug("%s: card remove detected\n", mmc_hostname(host));
+		ST_LOG("<%s> %s: card/tray remove detected\n", __func__, mmc_hostname(host));
 	}
 
 	return ret;
@@ -2263,6 +2274,12 @@ void mmc_rescan(struct work_struct *work)
 	if (host->rescan_disable)
 		return;
 
+	/* check if hw interrupt is triggered */
+	if (!host->trigger_card_event && !host->card) {
+		pr_err("%s: no detect irq, skipping mmc_rescan\n", mmc_hostname(host));
+		return;
+	}
+
 	/* If there is a non-removable card registered, only scan once */
 	if (!mmc_card_is_removable(host) && host->rescan_entered)
 		return;
@@ -2272,9 +2289,9 @@ void mmc_rescan(struct work_struct *work)
 		mmc_claim_host(host);
 		host->ops->card_event(host);
 		mmc_release_host(host);
-		host->trigger_card_event = false;
 	}
 
+	host->trigger_card_event = false;
 	mmc_bus_get(host);
 
 	/* Verify a registered card to be functional, else remove it. */

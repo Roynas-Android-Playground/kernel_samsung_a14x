@@ -20,7 +20,12 @@ struct printk_info {
 	u8	flags:5;	/* internal record flags */
 	u8	level:3;	/* syslog level */
 	u32	caller_id;	/* thread id or processor id */
-
+#ifdef CONFIG_PRINTK_PROCESS
+	char	process[16];	/* process name */
+	int	pid;		/* process id */
+	u8	cpu;		/* cpu id */
+	u8	in_interrupt;	/* interrupt context */
+#endif
 	struct dev_printk_info	dev_info;
 };
 
@@ -75,7 +80,6 @@ struct prb_desc_ring {
 	struct printk_info	*infos;
 	atomic_long_t		head_id;
 	atomic_long_t		tail_id;
-	atomic_long_t		last_finalized_id;
 };
 
 /*
@@ -259,7 +263,6 @@ static struct printk_ringbuffer name = {							\
 		.infos		= &_##name##_infos[0],						\
 		.head_id	= ATOMIC_INIT(DESC0_ID(descbits)),				\
 		.tail_id	= ATOMIC_INIT(DESC0_ID(descbits)),				\
-		.last_finalized_id = ATOMIC_INIT(DESC0_ID(descbits)),				\
 	},											\
 	.text_data_ring = {									\
 		.size_bits	= (avgtextbits) + (descbits),					\

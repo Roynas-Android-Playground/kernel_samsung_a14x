@@ -6,6 +6,7 @@
 #include <linux/init.h>
 #include <linux/kern_levels.h>
 #include <linux/linkage.h>
+#include <linux/cache.h>
 #include <linux/ratelimit_types.h>
 
 extern const char linux_banner[];
@@ -20,6 +21,9 @@ static inline int printk_get_level(const char *buffer)
 	if (buffer[0] == KERN_SOH_ASCII && buffer[1]) {
 		switch (buffer[1]) {
 		case '0' ... '7':
+#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+		case 'B' ... 'J':
+#endif
 		case 'c':	/* KERN_CONT */
 			return buffer[1];
 		}
@@ -345,6 +349,8 @@ extern int kptr_restrict;
  */
 #define pr_err(fmt, ...) \
 	printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_warning(fmt, ...) \
+	printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__)
 /**
  * pr_warn - Print a warning-level message
  * @fmt: format string
@@ -387,6 +393,33 @@ extern int kptr_restrict;
  */
 #define pr_cont(fmt, ...) \
 	printk(KERN_CONT fmt, ##__VA_ARGS__)
+
+#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+#define pr_auto(index, fmt, ...) \
+	printk(KERN_AUTO index pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_auto_disable(index) \
+	secdbg_comm_log_disable(index)
+#define pr_auto_once(index) \
+	secdbg_comm_log_once(index)
+
+#define ASL1	KERN_AUTO1
+#define ASL2	KERN_AUTO2
+#define ASL3	KERN_AUTO3
+#define ASL4	KERN_AUTO4
+#define ASL5	KERN_AUTO5
+#define ASL6	KERN_AUTO6
+#define ASL7	KERN_AUTO7
+#define ASL8	KERN_AUTO8
+#define ASL9	KERN_AUTO9
+
+#else
+/* TODO : retain the original log level */
+#define pr_auto(level, fmt, ...) \
+	printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_auto_disable(index) do { } while (0)
+#define pr_auto_once(index) do { } while (0)
+
+#endif /* SEC_DEBUG_AUTO_COMMENT */
 
 /**
  * pr_devel - Print a debug-level message conditionally

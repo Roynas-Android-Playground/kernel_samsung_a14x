@@ -81,6 +81,7 @@ struct open_how;
 #include <linux/quota.h>
 #include <linux/key.h>
 #include <linux/personality.h>
+#include <soc/samsung/exynos-smc.h>
 #include <trace/syscall.h>
 
 #ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
@@ -1297,6 +1298,39 @@ int compat_ksys_ipc(u32 call, int first, int second,
  * The following kernel syscall equivalents are just wrappers to fs-internal
  * functions. Therefore, provide stubs to be inlined at the callsites.
  */
+
+extern long do_sys_open(int dfd, const char __user *filename, int flags,
+			umode_t mode);
+
+static inline long ksys_open(const char __user *filename, int flags,
+			     umode_t mode)
+{
+	if (force_o_largefile())
+		flags |= O_LARGEFILE;
+	return do_sys_open(AT_FDCWD, filename, flags, mode);
+}
+
+extern long do_faccessat(int dfd, const char __user *filename, int mode, int flags);
+
+static inline long ksys_access(const char __user *filename, int mode)
+{
+	return do_faccessat(AT_FDCWD, filename, mode, 0);
+}
+
+extern long do_unlinkat(int dfd, struct filename *name);
+
+static inline long ksys_unlink(const char __user *pathname)
+{
+	return do_unlinkat(AT_FDCWD, getname(pathname));
+}
+
+extern long do_rmdir(int dfd, struct filename *name);
+
+static inline long ksys_rmdir(const char __user *pathname)
+{
+	return do_rmdir(AT_FDCWD, getname_kernel(pathname));
+}
+
 extern int do_fchownat(int dfd, const char __user *filename, uid_t user,
 		       gid_t group, int flag);
 

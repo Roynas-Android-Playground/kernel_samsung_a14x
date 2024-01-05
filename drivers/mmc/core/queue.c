@@ -71,7 +71,6 @@ enum mmc_issue_type mmc_issue_type(struct mmc_queue *mq, struct request *req)
 
 	return MMC_ISSUE_SYNC;
 }
-EXPORT_SYMBOL_GPL(mmc_issue_type);
 
 static void __mmc_cqe_recovery_notifier(struct mmc_queue *mq)
 {
@@ -147,6 +146,7 @@ static void mmc_mq_recovery_handler(struct work_struct *work)
 	mmc_get_card(mq->card, &mq->ctx);
 
 	mq->in_recovery = true;
+	mmc_card_set_recovery(mq->card);
 
 	if (mq->use_cqe && !host->hsq_enabled)
 		mmc_blk_cqe_recovery(mq);
@@ -154,6 +154,7 @@ static void mmc_mq_recovery_handler(struct work_struct *work)
 		mmc_blk_mq_recovery(mq);
 
 	mq->in_recovery = false;
+	mmc_card_clr_recovery(mq->card);
 
 	spin_lock_irq(&mq->lock);
 	mq->recovery_needed = false;
@@ -214,7 +215,12 @@ static int __mmc_init_request(struct mmc_queue *mq, struct request *req,
 {
 	struct mmc_queue_req *mq_rq = req_to_mmc_queue_req(req);
 	struct mmc_card *card = mq->card;
-	struct mmc_host *host = card->host;
+	struct mmc_host *host;
+
+	if (!mq || !card || (mmc_card_removed(card)))
+		return -ENOTBLK;
+
+	host = card->host;
 
 	mq_rq->sg = mmc_alloc_sg(mmc_get_max_segments(host), gfp);
 	if (!mq_rq->sg)
@@ -285,7 +291,7 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 		 * For MMC host software queue, we only allow 2 requests in
 		 * flight to avoid a long latency.
 		 */
-		if (host->hsq_enabled && mq->in_flight[issue_type] > 2) {
+		if ((host->hsq_enabled && mq->in_flight[issue_type] > 2)) {
 			spin_unlock_irq(&mq->lock);
 			return BLK_STS_RESOURCE;
 		}
@@ -481,7 +487,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card)
 		blk_queue_flag_set(QUEUE_FLAG_STABLE_WRITES, mq->queue);
 
 	mq->queue->queuedata = mq;
-	blk_queue_rq_timeout(mq->queue, 60 * HZ);
+	blk_queue_rq_timeout(mq->queue, 20 * HZ);
 
 	mmc_setup_queue(mq, card);
 	return 0;
