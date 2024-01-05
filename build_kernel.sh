@@ -1,15 +1,18 @@
 #!/bin/bash
+set -e
 
-export PATH=$(pwd)/toolchain/clang/host/linux-x86/clang-r450784e/bin:$PATH
-export PATH=$(pwd)/toolchain/build/kernel/build-tools/path/linux-x86/:$PATH
-export HOSTCFLAGS="--sysroot=$(pwd)/toolchain/build/kernel/build-tools/sysroot -I$(pwd)/toolchain/prebuilts/kernel-build-tools/linux-x86/include"
-export HOSTLDFLAGS="--sysroot=$(pwd)/toolchain/build/kernel/build-tools/sysroot  -Wl,-rpath,$(pwd)/toolchain/prebuilts/kernel-build-tools/linux-x86/lib64 -L $(pwd)/toolchain/prebuilts/kernel-build-tools/linux-x86/lib64 -fuse-ld=lld --rtlib=compiler-rt"
+[ ! -e "toolchain" ] && echo "Make toolchain avaliable at $(pwd)/toolchain" && exit
 
-export DTC_FLAGS="-@"
-export PLATFORM_VERSION=14
-export LLVM=1
+export KBUILD_BUILD_USER=Royna
+export KBUILD_BUILD_HOST=GrassLand
 export DEPMOD=depmod
-export ARCH=arm64
-export TARGET_SOC=s5e3830
-make exynos850-a14nsxx_defconfig
-make
+export PLATFORM_VERSION=14
+export DTC_FLAGS="-@"
+
+PATH=$PWD/toolchain/bin:$PATH
+COMMON_FLAGS="O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 -j$(nproc)"
+rm -rf out
+
+make $COMMON_FLAGS exynos850-a14nsxx_defconfig
+cp out/.config arch/arm64/configs/exynos850-a14nsxx_defconfig
+make O=out $COMMON_FLAGS
